@@ -192,11 +192,11 @@ class RegretAggregetor(object):
         #print generator(data, 0.141, d_pred)[1]
 
         f_demand_agg = [] #covering profit vector
-        for i, v in enumerate(p) :
-            g = (np.array(covering(generator(data, v, d_pred)[1])) - generator(data, v ,d_pred)[2])*generator(data, v, d_pred)[3]
-            f_demand_agg.append(g[d_train_a + i])
+        #for i, v in enumerate(p) :
+            #g = (np.array(covering(generator(data, v, d_pred)[1])) - generator(data, v ,d_pred)[2])*generator(data, v, d_pred)[3]
+            #f_demand_agg.append(g[d_train_a + i])
 
-        print  np.array(generator(data, 0.141 ,d_pred)[3])
+        #print  np.array(generator(data, 0.141 ,d_pred)[3])
 
         return "Coalition size:", coal, "Real activity profit:", self.d, "Total real activity profit:", sum(self.d), "Expected activity Profit:", self.m, "Expected optimal price:", p, \
                "Expected total activity profit:", sum(self.m), "Real maximum activity profit:", n, "Real activity profit + Covering profit", self.d ,\
@@ -323,7 +323,7 @@ if __name__ == '__main__':
         profit_r.append(i)
 
     #Covering profit of the retailer
-    f_cov_ret = np.array(covering(generator(data, r_price, d_pred)[5]))*generator(data, r_price, d_pred)[6]
+    #f_cov_ret = np.array(covering(generator(data, r_price, d_pred)[5]))*generator(data, r_price, d_pred)[6]
 
     #Total profit of the retailer
     profit_ret = np.array(profit_r[d_train_a-1:d_pred-1])*r_price #+ np.array(f_cov_ret)[d_train_a:]
@@ -363,11 +363,18 @@ if __name__ == '__main__':
     #plt.ylabel('Euros per kWh')
     #plt.title('Estimated optimal price')
 
-    plt.hist(x, b, color='b') #Agregator total profit
-    plt.hist(x, profit_ret, color='r') #Retailer total profit
-    plt.xticks(np.linspace(0, 23, 24,endpoint=True))
+
+
+
+    #plt.plot(x, b, color='b') #Agregator total profit
+    #plt.plot(x, profit_ret, color='r') #Retailer total profit
+    print b, profit_ret
+    plt.bar(x, b, color='r', label='Aggregator profit')
+    plt.bar(x, profit_ret, color='b', alpha=0.4, label='Retailer profit')
+    #plt.xticks(np.linspace(0, 23, 24,endpoint=True))
     plt.xlabel('Months')
     plt.ylabel('Profits')
+    plt.legend()
     plt.show()
 #    print a
 
