@@ -38,7 +38,7 @@ data = pd.read_hdf('/Users/Colo/Google Drive/Projects/regret/data/LD2011_2014.hd
 
 r_price = 0.1433
 a_price = np.arange(0.14, 0.15, 0.001) #range of possible prices 0.14 < p^{agg} < 0.15 = \bar(p)
-beta = 0.9
+beta = 0.3
 cons = 370
 
 # Omega, c and d are to be calibrated
@@ -346,7 +346,7 @@ if __name__ == '__main__':
 #### Output ####
 
     a = agg.profit(target_p)[0] #Real activity profit
-    b = np.abs(a - agg.profit(target_p)[1]) #Difference between real and potential activity profit
+    b = a - agg.price(target_p)[0] #Difference between real and potential activity profit
     c = agg.coal_size() #Coalition size
     d = agg.c_profit(data) #Covering profit
     e = agg.price(target_p)[1] #Chosen price by the aggregator
@@ -354,28 +354,30 @@ if __name__ == '__main__':
 
     x = np.arange(0, 24, 1)
 
-    #plt.figure(1)
-    #plt.subplot(221)
-    #plt.plot(x, a, color='b', )
-    #plt.xticks(np.linspace(0, 23, 24,endpoint=True))
-    #plt.title('Real profit')
-    #plt.subplot(222)
-    #plt.plot(x, b, color='b')
-    #plt.xticks(np.linspace(0, 23, 24, endpoint=True))
-    #plt.title('Difference between real and potential maximum profit')
+    plt.figure(1)
+    plt.subplot(221)
+    plt.bar(x, a, color='b', )
+    plt.xticks(np.linspace(0, 23, 24,endpoint=True))
+    plt.title('Real profit')
+    plt.subplot(222)
+    plt.bar(x, b, color='b')
+    plt.xticks(np.linspace(0, 23, 24, endpoint=True))
+    plt.title('Difference between real and expected profit')
     #plt.axis([0, 24, 0, 0.15])
-    #plt.subplot(223)
-    #plt.plot(x, c, color='b')
-    #plt.xticks(np.linspace(0, 23, 24,endpoint=True))
-    #plt.xlabel('Months')
-    #plt.ylabel('Market share')
-    #plt.title('Coalition size')
-    #plt.subplot(224)
-    #plt.plot(x, e, color='b')
-    #plt.xticks(np.linspace(0, 23, 24,endpoint=True))
-    #plt.xlabel('Months')
-    #plt.ylabel('Euros per kWh')
-    #plt.title('Estimated optimal price')
+    plt.subplot(223)
+    plt.bar(x, c, color='b')
+    plt.xticks(np.linspace(0, 23, 24,endpoint=True))
+    plt.xlabel('Months')
+    plt.ylabel('Market share')
+    plt.title('Coalition size')
+    plt.subplot(224)
+    plt.bar(x, e, color='b')
+    plt.xticks(np.linspace(0, 23, 24,endpoint=True))
+    plt.xlabel('Months')
+    plt.ylabel('Euros per kWh')
+    plt.title('Estimated optimal price')
+    plt.ylim(ymax = 0.15, ymin=0.14)
+    plt.show()
 
 
 
@@ -385,13 +387,14 @@ if __name__ == '__main__':
 
     #plt.bar(x,c)
 
-    plt.bar(x, a + d, color='r', label='Aggregator profit')
-    plt.bar(x, profit_ret + f_cov_ret, color='b', alpha=0.4, label='Retailer profit')
+    #plt.bar(x, a + d, color='r', label='Aggregator profit')
+    #plt.bar(x, profit_ret + f_cov_ret, color='b', alpha=0.4, label='Retailer profit')
     #plt.xticks(np.linspace(0, 23, 24,endpoint=True))
-    plt.xlabel('Months')
-    plt.ylabel('Profits')
-    plt.legend()
-    plt.show()
+    #plt.xlabel('Months')
+    #plt.ylabel('Profits')
+    #plt.ylim(ymax = max(profit_ret + f_cov_ret))
+    #plt.legend()
+    #plt.show()
 
 
 #### Performance ####
