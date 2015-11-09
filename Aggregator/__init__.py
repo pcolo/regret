@@ -38,7 +38,7 @@ data = pd.read_hdf('/Users/Colo/Google Drive/Projects/regret/data/LD2011_2014.hd
 
 r_price = 0.1433
 a_price = np.arange(0.14, 0.15, 0.001) #range of possible prices 0.14 < p^{agg} < 0.15 = \bar(p)
-beta = 0.3
+beta = 0.9
 cons = 370
 iter = 100
 
@@ -272,7 +272,7 @@ class RegretAggregetor(object):
 
         return self.total_loss, self.p, vect_se_p, total_loss_p
 
-    def stab_profit(self):
+    def stab_proba(self):
         f = []
         e = np.array(eta(generator(data, self.p)[1], self.p, iter)[1])*generator(data, self.p)[3]
 
@@ -387,7 +387,7 @@ if __name__ == '__main__':
     agg.price()
     agg.profit(target_p)
     agg.coal_size()
-    agg.stab_profit()
+    agg.stab_proba()
     #agg.c_profit(data)
 
 #### Retailer ####
@@ -411,7 +411,7 @@ if __name__ == '__main__':
     a = agg.profit(target_p)[0] #Real activity profit
     b = a - agg.price()[0] #Difference between real and potential activity profit
     c = agg.coal_size() #Coalition size
-    d = agg.stab_profit() #Probability of stabilizing the coalition
+    d = agg.stab_proba() #Probability of stabilizing the coalition
     e = agg.price()[1] #Chosen price by the aggregator
 
     x = np.arange(0, 24, 1)

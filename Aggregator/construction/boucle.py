@@ -1,8 +1,8 @@
- # -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 
 ##### Version prédiction de la consommation globale.
 
-from Retailer import nn_agg, reg_reduc
+from Aggregator import nn_agg, reg_reduc
 from sklearn.svm import SVR
 from sklearn.linear_model import BayesianRidge
 from sklearn.externals import joblib
@@ -38,14 +38,14 @@ data = pd.read_hdf('/Users/Colo/Google Drive/Projects/regret/data/LD2011_2014.hd
 
 r_price = 0.1433
 a_price = np.arange(0.14, 0.15, 0.001) #range of possible prices 0.14 < p^{agg} < 0.15 = \bar(p)
-beta = 0.9
+beta = 0.3
 cons = 370
-iter = 100
+iter = 10
 
 # Omega, c and d are to be calibrated
 
 
-def generator(X, a_p, r_p):
+def generator(X, a):
     """
     :param X: entry data
     :param a: chosen price by the company
@@ -58,8 +58,8 @@ def generator(X, a_p, r_p):
     b = np.array([np.random.uniform(c, d, cons)])
 
     s = []
-    for i in range(len(a_p)):
-        s.append(np.sum(np.random.normal(r_p[i] - a_p[i], 2*(b)**2), axis=1)) #\sum_{i} s(i,m) ie number of changing players
+    for i in a:
+        s.append(np.sum(np.random.normal(r_price - i, 2*(b)**2), axis=1)) #\sum_{i} s(i,m) ie number of changing players
 
     c_r = range(1, cons+1) #construction variable
     c_a = [] #construction variable
@@ -94,6 +94,49 @@ def generator(X, a_p, r_p):
     return outt, e_a, out.min(0)[0], out.max(0)[0] - out.min(0)[0], tou, e_r,  tou.max(0)[0] - tou.min(0)[0]
 
 
+def eta(e_a, p, iter):
+    p_plus = 1.48 #tbc
+    p_minus = 1.46 #tbc
+    p_f =  1.44#tbc
+
+    epsilon = []
+    epsilon_plus = []
+    epsilon_minus = []
+
+    c = 0.01
+    d = 0.6
+
+    b = np.array([np.random.uniform(c, d, cons)])
+
+
+    s_mu_r = np.sum(np.random.normal(p - r_price, 2*(b)**2), axis=1) #\sum_{i} s(i,m) ie number of changing players
+
+    for i, v in enumerate(e_a):
+        norm = np.random.normal(0, [(0.05)**2]*len(v))
+        epsilon.append(norm)
+
+        epsilon_plus.append(np.amax([norm, [0]*len(v)], axis=0))
+        epsilon_minus.append(np.amax([-norm, [0]*len(v)], axis=0))
+
+    D = [] # total eta core - covering profit
+
+    for i in range(iter):
+
+        D_plus = np.amax([sum_variable(epsilon), [0]*len(sum_variable(epsilon))], axis=0)
+        D_minus = np.amax([- sum_variable(epsilon), [0]*len(sum_variable(epsilon))], axis=0)
+        s_epsilon_plus = sum_variable(epsilon_plus)
+        s_epsilon_minus = sum_variable(epsilon_minus)
+
+
+        D.append(p_plus*s_epsilon_plus - p_minus*s_epsilon_minus +(r_price - s_mu_r - p_f - p_minus*(1 - 1.0/zero(len(e_a),0)))*D_minus - \
+            (r_price - s_mu_r - p_f - p_plus*(1 - 1.0/zero(len(e_a),0))*D_plus)) # total eta core - covering profit
+
+    F = []
+    for i, v in enumerate(D):
+        F.append(np.sort(np.array(D)[i]))
+
+    return F[-1] #returns the vector of values of Pi_A such as p(Pi_A \geq \sum \eta_j - \Pi_C) = 1 p.s. for each period
+
 def covering(e_a):
     p_plus = 1.48 #tbc
     p_minus = 1.46 #tbc
@@ -117,61 +160,6 @@ def covering(e_a):
     D = (p_minus*(s_epsilon_minus - D_minus/zero(len(e_a),0)) - p_plus*(s_epsilon_plus - D_plus/zero(len(e_a),0)))
 
     return D  #returns the covering profit (including the cost of the coalition)
-
-def eta(e_a, a_p, r_p, iter):
-    p_plus = 1.48 #tbc
-    p_minus = 1.46 #tbc
-    p_f =  1.44#tbc
-
-    c = 0.01
-    d = 0.6
-
-    D = [] # total eta core - covering profit
-
-    b = [np.random.uniform(c, d, cons)]*iter
-
-    for w, k in enumerate(np.array(b)):
-
-        epsilon = []
-        epsilon_plus = []
-        epsilon_minus = []
-        s_mu_r = []
-
-        for i in range(len(a_p)):
-            s_mu_r.append(np.sum(np.random.normal(a_p[i] - r_p[i-1], 2*(k)**2))) #\sum_{i} s(i,m) ie number of changing players
-
-        for i, v in enumerate(e_a):
-            norm = np.random.normal(0, [(0.05)**2]*len(v))
-            epsilon.append(norm)
-
-            epsilon_plus.append(np.amax([norm, [0]*len(v)], axis=0))
-            epsilon_minus.append(np.amax([-norm, [0]*len(v)], axis=0))
-
-        D_plus = np.amax([sum_variable(epsilon), [0]*len(sum_variable(epsilon))], axis=0)
-        D_minus = np.amax([- sum_variable(epsilon), [0]*len(sum_variable(epsilon))], axis=0)
-        s_epsilon_plus = sum_variable(epsilon_plus)
-        s_epsilon_minus = sum_variable(epsilon_minus)
-
-
-        D.append(p_plus*s_epsilon_plus - p_minus*s_epsilon_minus +(r_price - np.array(s_mu_r) - p_f - p_minus*(1 - 1.0/zero(len(e_a),0)))*D_minus - \
-            (r_price - np.array(s_mu_r) - p_f - p_plus*(1 - 1.0/zero(len(e_a),0))*D_plus)) # total eta core - covering profit
-
-    E = []
-    for i in range(len(p)):
-        for j in range(iter):
-            E.append(D[j][i])
-
-    F = np.array(E).reshape(len(p), iter)
-
-    G = []  #Distribution of "total eta core - covering profit" for each period
-    for i, v in enumerate(F):
-        G.append(np.sort(F)[i])
-
-    H = [] # H: values of Pi_A such as p(Pi_A \geq \sum \eta_j - \Pi_C) = 1 p.s.
-    for i, v in enumerate(G):
-        H.append(v[-1])
-
-    return np.array(H), G
 
 ### Annexe functions for construction
 
@@ -219,28 +207,7 @@ class RegretAggregetor(object):
         self.y = self.p[0]*np.array(pred_nn_p) + self.p[1]*np.array(pred_reg_p) + self.p[2]*np.array(pred_svr_p)
         return self.y
 
-    def price_prof(self):
-        a = np.array([self.y[i]*v*generator(data, [v]*(d_pred))[3] for i,v in enumerate(a_price)]).reshape(d_pred - d_train_a, len(a_price)) #EXPECTED profit vector for a given period
-        # on the entire range of prices
-        self.m = [] #EXPECTED profit
-        self.b = [] #index of the EXPECTED optimal price for a given period
-        self.p = [] #EXPECTED optimal price for a given period
-
-        for i, v in enumerate(a):
-            self.m.append(np.amax(v))
-            if np.amax(v) != 0:
-                for w, j in enumerate(v):
-                    if j == np.amax(v): #Here is defined the profit objecitve. Here option A: maximum profit
-                        self.b.append(w)
-            elif np.amax(v) == 0:
-                self.b.append(1)
-
-        for i in self.b:
-            self.p.append(a_price[i])
-
-        return self.m, self.p
-
-    def price_stab(self):
+    def price(self):
         self.m = [] #EXPECTED profit
         self.b = [] #index of the EXPECTED optimal price for a given period
         self.p = [] #EXPECTED optimal price for a given period
@@ -248,8 +215,8 @@ class RegretAggregetor(object):
         c = []
 
         for i, v in enumerate(a_price):
+            b = eta(generator(data, [v]*(d_pred))[1], v, iter)*generator(data, [v]*(d_pred))[3]
             a.append(self.y[i]*v*generator(data, [v]*(d_pred))[3])
-            b = eta(generator(data, [v]*(d_pred))[1], [v]*(d_pred), iter)[0]*generator(data, [v]*(d_pred))[3]
             c.append(b[d_train_a:])
 
         A = np.array([a]).reshape(d_pred - d_train_a, len(a_price))
@@ -264,7 +231,6 @@ class RegretAggregetor(object):
 
         return self.m, self.p
 
-
     def profit(self, X):
         n = [] #REAL maximum profit on a given period
         c = np.array([np.array(X[i])*v*generator(data, [v]*(d_pred))[3] for i,v in enumerate(a_price)]).reshape( d_pred - d_train_a, len(a_price)) #REAL profit vector for a given period
@@ -272,7 +238,9 @@ class RegretAggregetor(object):
 
         for i, v in enumerate(c):
             n.append(np.amax(v))
-        self.d = np.array([np.array(X[v][i])*a_price[v]*generator(data, self.p)[3] for i,v in enumerate(self.b)]) #REAL profit vector for a given period
+
+        #REAL profit vector for a given period
+        self.d = np.array([np.array(X[v][i])*a_price[v]*generator(data, self.p)[3] for i,v in enumerate(self.b)])
 
         return self.d, n
 
@@ -284,14 +252,6 @@ class RegretAggregetor(object):
 
         return coal
 
-    def c_profit(self, data):
-
-        f_demand_agg = (covering(generator(data, self.p)[1]) - generator(data, self.p)[2])*generator(data, self.p)[3]
-
-        return f_demand_agg
-
-
-
     def expost(self):
 
         self.total_loss = np.sum(self.loss_a)  #prediction error
@@ -300,19 +260,9 @@ class RegretAggregetor(object):
 
         return self.total_loss, self.p, vect_se_p, total_loss_p
 
-    def stab_proba(self):
-        f = []
-        e = np.array(eta(generator(data, self.p)[1], self.p, iter)[1])*generator(data, self.p)[3]
-
-        for i in range(d_pred - d_train_a):
-            f.append(float(np.abs(np.array(e)[i] - self.m[i]).argmin()))
-
-        return np.array(f)/iter
-
 ## -----------------------  Fit & Prediction ---------------------------- ##
 
 if __name__ == '__main__':
-
     pred_reg_a = []
     pred_svr_a = []
     pred_nn_a = []
@@ -321,17 +271,6 @@ if __name__ == '__main__':
     pred_nn_p = []
     target_a = []
     target_p = []
-
-    pred_reg_a_ret = []
-    pred_svr_a_ret = []
-    pred_nn_a_ret = []
-    pred_reg_p_ret = []
-    pred_svr_p_ret = []
-    pred_nn_p_ret = []
-    target_a_ret = []
-    target_p_ret = []
-
-
 
 
     for a in a_price:
@@ -348,15 +287,13 @@ if __name__ == '__main__':
         Xmax = np.amax(X, axis=0)*1.0
         X = X/Xmax
 
-        X_e = X[:d_train_e]
-        X_a = X[d_train_e:d_train_a]
-        X_p = X[d_train_a:d_pred]
-
-        #Aggregator prediction labels
-
         y = []
         for i in m_share['Aggregator']:
             y.append(i)
+
+        X_e = X[:d_train_e]
+        X_a = X[d_train_e:d_train_a]
+        X_p = X[d_train_a:d_pred]
 
         y_e = y[:d_train_e]
         y_a = y[d_train_e:d_train_a]
@@ -365,19 +302,6 @@ if __name__ == '__main__':
         target_a.append(y_a)
         target_p.append(y_p)
 
-        #Retailer prediction labels
-
-        z = []
-        for i in m_share['Retailer']:
-            z.append(i)
-
-        z_e = z[:d_train_e]
-        z_a = z[d_train_e:d_train_a]
-        z_p = z[d_train_a:d_pred]
-
-        target_a_ret.append(z_a)
-        target_p_ret.append(z_p)
-
 
 
 #### Neural Network ####
@@ -385,19 +309,18 @@ if __name__ == '__main__':
         start = timeit.default_timer()
 
         xpr_nn = nn_agg.NeuralNetwork()
-
-        #Aggregator
-
         xpr_nn.fit(X_e, y_e)
+
         pred_nn_a.append(xpr_nn.predict(X_a))
+
         pred_nn_p.append(xpr_nn.predict(X_p))
 
-        #Retailer
 
-        xpr_nn.fit(X_e, z_e)
-        pred_nn_a_ret.append(xpr_nn.predict(X_a))
-        pred_nn_p_ret.append(xpr_nn.predict(X_p))
+    #xpr_bay = BayesianRidge()
+    #xpr_bay.fit(X_e, y_e)
 
+    #joblib.dump(xpr_nn0, 'pick/nn.pkl') #Saving parameters of the Neural Network
+    #xpr_nn = joblib.load('pick/nn.pkl')  #Charge parameters of the Neural Network
 
         stop = timeit.default_timer()
         print "xpr_nn time:", stop - start
@@ -407,20 +330,10 @@ if __name__ == '__main__':
         start = timeit.default_timer()
 
         xpr_regret = reg_reduc.RegretRegressor()
-
-        #Aggregator
-
         xpr_regret.fit(y_e)
 
         pred_reg_a.append(xpr_regret.predict(X_a))
         pred_reg_p.append(xpr_regret.predict(X_p))
-
-        #Retailer
-
-        xpr_regret.fit(z_e)
-
-        pred_reg_a_ret.append(xpr_regret.predict(X_a))
-        pred_reg_p_ret.append(xpr_regret.predict(X_p))
 
         stop = timeit.default_timer()
         print "xpr_regret time", stop - start
@@ -430,21 +343,15 @@ if __name__ == '__main__':
         start = timeit.default_timer()
 
         xpr_svr = SVR(kernel='rbf', C=1.0, epsilon=0.2)
-
-        #Aggregator
-
         xpr_svr.fit(X_e, y_e)
 
         pred_svr_a.append(xpr_svr.predict(X_a))
         pred_svr_p.append(xpr_svr.predict(X_p))
 
-        #Retailer
 
-        xpr_svr.fit(X_e, z_e)
 
-        pred_svr_a_ret.append(xpr_svr.predict(X_a))
-        pred_svr_p_ret.append(xpr_svr.predict(X_p))
-
+    #joblib.dump(xpr_svr0, 'pick_svr/svr.pkl') #Saving parameters of the SVR
+    #xpr_svr = joblib.load('pick_svr/svr.pkl')
 
         stop = timeit.default_timer()
         print "xpr_svr time:", stop - start
@@ -452,47 +359,39 @@ if __name__ == '__main__':
 #### Aggregator ####
     start = timeit.default_timer()
 
+    #print len(eta(generator(data, [0.141]*d_pred)[1], 0.141, iter))
+
     agg = RegretAggregetor()
     agg.fit(X_a, target_a)
     agg.predict()
-    agg.price_stab()
+    agg.price()
     agg.profit(target_p)
     agg.coal_size()
-    agg.stab_proba()
-
-    a = agg.profit(target_p)[0] #Real activity profit
-    b = a - agg.price_stab()[0] #Difference between real and potential activity profit
-    c = agg.coal_size() #Coalition size
-    d = agg.stab_proba() #Probability of stabilizing the coalition
-    e = agg.price(target_p)[1] #Chosen price by the aggregator
-
-    stop = timeit.default_timer()
-    print "agg time:", stop - start
+    #agg.c_profit(data)
 
 #### Retailer ####
 
-    start = timeit.default_timer()
+    profit_r = [] #Activity profit of the retailer
+    for i in generator(data, [r_price]*d_pred)[4]['Retailer']:
+        profit_r.append(i)
 
-    #agg = RegretAggregetor()
-    agg.fit(X_a, target_a_ret)
-    agg.predict()
-    agg.price_prof()
-    agg.profit(target_p_ret)
-    agg.coal_size()
-    agg.c_profit(data)
+    #Covering profit of the retailer
+    f_cov_ret = np.array(covering(generator(data, [r_price]*d_pred)[5])*generator(data, [r_price]*d_pred)[6])[d_train_a-1:d_pred-1]
 
-    a_ret = agg.profit(target_p)[0] #Real activity profit
-    b_ret = a - agg.price_prof()[0] #Difference between real and potential activity profit
-    c_ret = agg.coal_size() #Coalition size
-    d_ret = agg.c_profit(data) #Covering profit
-    e_ret = agg.price(target_p)[1] #Chosen price by the retailer
+    #Total profit of the retailer
+    profit_ret = np.array(profit_r[d_train_a-1:d_pred-1])*r_price #+ np.array(f_cov_ret)[d_train_a:]
+
 
     stop = timeit.default_timer()
     print "agg time:", stop - start
 
 #### Output ####
 
-    #Aggregator
+    a = agg.profit(target_p)[0] #Real activity profit
+    b = a - agg.price()[0] #Difference between real and potential activity profit
+    c = agg.coal_size() #Coalition size
+    #d = agg.c_profit(data) #Covering profit
+    e = agg.price()[1] #Chosen price by the aggregator
 
     x = np.arange(0, 24, 1)
 
