@@ -125,7 +125,7 @@ def eta(e_a, a_p, r_p, iter):
 
     c = 0.01
     d = 0.6
-
+#dd
     D = [] # total eta core - covering profit
 
     b = [np.random.uniform(c, d, cons)]*iter
