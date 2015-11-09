@@ -210,6 +210,7 @@ class RegretAggregetor(object):
         for i, v in enumerate(y):
             for k, w in enumerate(v):
                 self.loss_e = np.array([(self.nn_p[i][k]-w)**2, (self.reg_p[i][k]-w)**2, (self.svr_p[i][k]-w)**2,])
+                print self.loss_e.shape
                 self.p = self.p * np.exp(-self.nu * self.loss_e) / np.sum(self.p * np.exp(-self.nu * self.loss_e))
                 self.loss_a.append((w - self.loss_e*self.p)**2)
         self.total_loss = np.sum(self.loss_a)
